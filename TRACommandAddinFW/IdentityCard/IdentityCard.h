@@ -31,4 +31,8 @@ AddPrereqComponent("ObjectModelerBase ",Protected);
 AddPrereqComponent("KnowledgeInterfaces  ",Protected);
 AddPrereqComponent("Visualization  ",Protected);
 AddPrereqComponent("ProductStructure  ",Protected);
+AddPrereqComponent("ObjectModelerNavigator  ",Protected);
+
+
+ 
 // END WIZARD EDITION ZONE

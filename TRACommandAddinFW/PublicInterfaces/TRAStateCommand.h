@@ -21,6 +21,12 @@
 #include "TRAStCommand.h"
 #include "CATStateCommand.h"
 #include "CATBoolean.h"
+#include "CATIProduct.h"
+#include "CATDocument.h"
+#include "CATBaseUnknown.h"
+
+
+
 
 class CATIndicationAgent;
 
@@ -42,6 +48,10 @@ class ExportedByTRAStCommand TRAStateCommand: public CATStateCommand
 
   public:
 
+	  HRESULT AddExternalComponent(CATIProduct *iThisProd, CATDocument *iDocument, CATIProduct **oNewProduct);
+
+	  void RefreshVisuAndTree(CATBaseUnknown_var spUnknwon);
+
   TRAStateCommand();
   virtual ~TRAStateCommand();
 
@@ -58,6 +68,8 @@ class ExportedByTRAStCommand TRAStateCommand: public CATStateCommand
   
 
   private:
+
+	  CATIProduct_var _spRootProduct ;
 
 
 };

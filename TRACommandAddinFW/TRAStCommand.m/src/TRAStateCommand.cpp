@@ -21,6 +21,18 @@
 #include "CATDocument.h"
 #include "CATIDocRoots.h"
 #include "CATIProduct.h"
+#include "CATDocumentServices.h"
+#include "CATIMovable.h"
+#include "CATIModelEvents.h"
+#include "CATModify.h"
+#include "CATIRedrawEvent.h"
+#include "CATBaseUnknown.h"
+
+
+
+
+
+
 #include<iostream>
 using namespace std;
 
@@ -38,6 +50,8 @@ TRAStateCommand::TRAStateCommand() :
 //  Valid states are CATDlgEngOneShot and CATDlgEngRepeat
   
 {
+
+	_spRootProduct = NULL_var;
 }
 
 //-------------------------------------------------------------------------
@@ -77,64 +91,177 @@ void TRAStateCommand::BuildGraph()
 	std::cout << std::endl << " RootProducts List created " << std::endl ;
 
 
-	CATIProduct_var spRootProduct = NULL_var;
+	
 
-	spRootProduct = (*pRootProducts)[1];
+	_spRootProduct = (*pRootProducts)[1];
 			delete pRootProducts;
 			pRootProducts = NULL;
 	CATIProduct *piProductOnRoot = NULL;
-	rc = spRootProduct->QueryInterface(IID_CATIProduct,
+	rc = _spRootProduct->QueryInterface(IID_CATIProduct,
 		                               (void**) &piProductOnRoot);
 
 	std::cout << std::endl << " Got the Root Product " << std::endl ;
 
-	/* ---------------------------------------*/
-	/* 3. Retrieves children under the root   */
-	/* ---------------------------------------*/
-	
-	int nbOfDirectChidren = piProductOnRoot -> GetChildrenCount() ;
-	cout << " Number of direct children under the root = " << nbOfDirectChidren << endl << flush;
-	
-	// then on a root product, get all the children agregated to it.
-	CATListValCATBaseUnknown_var*   ListChildren =
-		piProductOnRoot->GetAllChildren();
-/** @anchor err_2 piProductOnRoot not set to NULL after release */ 
-	piProductOnRoot -> Release();
-	piProductOnRoot = NULL;
-	if(NULL != ListChildren)
-	{
-		
-		int numberOfChildren = ListChildren->Size();
-		cout << " Number of all children under the root = " << numberOfChildren << endl << flush;
+	CATDocument *pPartDoc = NULL;
+	CATIProduct *piInstanceProd1 = NULL;
 
-		/* -----------------------------------------------------------*/
-		/*  4. For each child, get its partNumber, and InstanceName   */
-		/* -----------------------------------------------------------*/
-		CATIProduct_var spChild = NULL_var;
-		for (int i=1;i<=numberOfChildren;i++)
-		{
-			spChild = (*ListChildren)[i];
-/** @anchor err_3 spChild not tested before use ( if !! ) */ 
-			 
-			CATUnicodeString partNumber = spChild -> GetPartNumber();
-			CATUnicodeString instanceName (" ");
-			rc = spChild -> GetPrdInstanceName ( instanceName ) ;
-			if  ( FAILED(rc) ) 
-			
-			cout << " child number : " << i << endl << flush;
-			cout << " has as part number : " << partNumber.CastToCharPtr()  << endl << flush;
-			cout << " and as instanceName : " << instanceName.CastToCharPtr() << endl << endl << flush;
-		}
-		delete ListChildren;
-		ListChildren=NULL;
+	// load of the CATPart to import
+	rc = CATDocumentServices::OpenDocument("C:\\Users\\Dell\\Documents\\CAAPstImport.CATPart",
+		                           pPartDoc);
+	std::cout << std::endl << " Load OK " << std::endl ;
+	
+	// import the CATPart under the root.
+	rc = AddExternalComponent(piProductOnRoot, 
+		                        pPartDoc,
+								&piInstanceProd1);
+
+	CATIProduct_var spAlternateProduct = piProductOnRoot->AddProduct ( "AlternatProd" );
+    piProductOnRoot -> Release();
+    piProductOnRoot = NULL;
+
+	std::cout << std::endl << "add local product OK" << std::endl ;
+
+	CATIProduct *piAlternateProduct = NULL;
+	rc = spAlternateProduct->QueryInterface(IID_CATIProduct, (void**) &piAlternateProduct);
+
+	// imports the same CATPart under the local product.
+	CATIProduct *piInstanceProd2 = NULL;
+	rc = AddExternalComponent(piAlternateProduct,
+                                pPartDoc,
+                                &piInstanceProd2);
+
+	std::cout << std::endl << "add part under local product OK" << std::endl ;
+
+	/*          Positioning CATParts                               */
+
+	CATIProduct_var spReferenceAlternateProduct = piAlternateProduct ->GetReferenceProduct();
+    piAlternateProduct -> Release();
+    piAlternateProduct = NULL;
+
+	std::cout << std::endl << "Reference of the local product instance retrieved OK" << std::endl ;
+
+	 CATIProduct_var spMovableInstanceInContext = piInstanceProd2 ->FindInstance(spReferenceAlternateProduct);
+
+	 std::cout << std::endl << "Instance in the context of the local reference product retrieved OK" << std::endl ;
+
+	// Get CATIMovable handle on the instance of the local product.
+	CATIMovable *piMovableOnAlternate = NULL;
+	rc = spAlternateProduct->QueryInterface(IID_CATIMovable,
+		                                   (void**) &piMovableOnAlternate);
+	
+	
+	// description of the transformation matrix to the local product.
+	// 1 0 0 12
+	// 0 1 0 12
+	// 0 0 1 12
+
+    double *aPositionAlt = new double [12];
+	for (int l=0; l < 12; l++)
+    	aPositionAlt[l]=0.;
+	
+	aPositionAlt[0] = 1.;
+	aPositionAlt[4] = 1.;
+	aPositionAlt[8] = 1.;
+	aPositionAlt[9] = 12.;
+	aPositionAlt[10] = 12.;
+	aPositionAlt[11] = 12.;
+	 
+	std::cout << std::endl << "Applied transformation on the local product: " << std::endl ;
+	for ( int m=0; m<3; m++)
+		std::cout << aPositionAlt[m] << " " << aPositionAlt[m+3]<< " " << aPositionAlt[m+6] << " " << aPositionAlt[m+9]<< std::endl ;
+
+	// applying the matrix moves the local product.
+	CATMathTransformation newRefPosition(aPositionAlt);
+	piMovableOnAlternate -> SetPosition(newRefPosition,
+		                                NULL_var);
+/** @anchor err_1 aPositionAlt not set to NULL after delete */ 
+    delete [] aPositionAlt;
+	aPositionAlt = NULL;
+
+	CATBaseUnknown_var spUnknown = _spRootProduct ;
+
+	RefreshVisuAndTree(spUnknown);
 
 	}
-
-
-
-
  
+
+
+
+	
+
+
 }
 
 
+
+
+HRESULT TRAStateCommand::AddExternalComponent(CATIProduct *iThisProd, CATDocument *iDocument, CATIProduct **oNewProduct)
+{
+	
+
+	HRESULT rc = E_FAIL;
+	
+	if ( NULL != iDocument)
+	{
+		// Get RootProduct of the document to import.
+		CATIDocRoots *piDocRootsOnDoc = NULL;
+		rc = iDocument->QueryInterface(IID_CATIDocRoots,
+			                           (void**) &piDocRootsOnDoc);
+		if ( FAILED(rc) )
+		{
+			std::cout << "** QI on CATIDocRoots failed " << std::endl ;
+			
+		}
+		
+		CATListValCATBaseUnknown_var *pRootProducts = 
+			piDocRootsOnDoc->GiveDocRoots();
+		CATIProduct_var spRootProduct = NULL_var;
+		if ( NULL != pRootProducts)
+			if (pRootProducts->Size())
+			{  
+				// the root product is first element of
+				// the list of root elements.
+				spRootProduct = (*pRootProducts)[1];
+				delete pRootProducts;
+				pRootProducts = NULL;
+			}
+			
+		piDocRootsOnDoc->Release();
+		piDocRootsOnDoc=NULL;
+		
+		CATIProduct_var spProduct = NULL_var;
+		if (NULL_var != spRootProduct)
+		{
+		// We have the root product from which one
+			// will be agregated in "this"
+/** @anchor err_1 iThisProduct not tested before use */ 
+		spProduct = iThisProd->AddProduct   (spRootProduct);
+		}
+		else
+		{
+			CATUnicodeString docName = iDocument-> StorageName();
+/** @anchor err_2 iThisProduct not tested before use */ 
+			iThisProd->AddShapeRepresentation(CATUnicodeString("model"),
+				                              docName);
+			
+		}
+
+		rc = spProduct->QueryInterface(IID_CATIProduct, 
+			                           (void**) &*oNewProduct);
+		
+	}
+	return rc; 
+} 
+
+void TRAStateCommand::RefreshVisuAndTree(CATBaseUnknown_var spUnknown)
+{
+	CATIModelEvents_var spEvents = spUnknown;
+
+	CATModify ntfModify(spUnknown);
+
+	spEvents->Dispatch(ntfModify);
+
+	CATIRedrawEvent_var spRedraw = spUnknown;
+
+	spRedraw->Redraw();
 }
