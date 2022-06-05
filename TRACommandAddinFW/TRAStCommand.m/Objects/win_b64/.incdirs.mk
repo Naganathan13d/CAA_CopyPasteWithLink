@@ -1,0 +1,5 @@
+/I"D:\CAA\TRANagaTest2WS\.\TRACommandAddinFW\TRAStCommand.m\src"
+/I"D:\CAA\TRANagaTest2WS\.\TRACommandAddinFW\TRAStCommand.m\LocalInterfaces"
+/I"D:\CAA\TRANagaTest2WS\.\TRACommandAddinFW\TRAStCommand.m\LocalGenerated\win_b64"
+/I"D:\CAA\TRANagaTest2WS\.\TRACommandAddinFW\PublicInterfaces"
+/I"D:\CAA\TRANagaTest2WS\.\TRACommandAddinFW\ImportedInterfaces\win_b64"

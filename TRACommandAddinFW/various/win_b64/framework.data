@@ -1,0 +1,8 @@
+!<mkRTViewData> v1.0.0
+DAT/002/CUS .\win_b64\resources\msgcatalog\TRAStateCommand.CATNls|.\TRACommandAddinFW\CNext\resources\msgcatalog\TRAStateCommand.CATNls
+BTV/002/DSI .\win_b64\code\productIC\TRACommandAddinFWIC.xml|.\TRACommandAddinFW
+RTV/002/DSI .\win_b64\code\productIC\TRACommandAddinFWIC.required|.\TRACommandAddinFW
+RTV/000/DSI .\win_b64\resources\msgcatalog\NlsTest\TRAStateCommand.CATNls|.\TRACommandAddinFW\CNext\resources\msgcatalog\TRAStateCommand.CATNls
+RTV/000/DSI .\win_b64\resources\msgcatalog\DbcsTest\TRAStateCommand.CATNls|.\TRACommandAddinFW\CNext\resources\msgcatalog\TRAStateCommand.CATNls
+BTV/002/CUS .\win_b64\code\productIC\TRACommandAddinFWIC.script|.\TRACommandAddinFW
+DAT/002/CUS .\win_b64\code\dictionary\TRACommandAddinFW.dico|.\TRACommandAddinFW\CNext\code\dictionary\TRACommandAddinFW.dico

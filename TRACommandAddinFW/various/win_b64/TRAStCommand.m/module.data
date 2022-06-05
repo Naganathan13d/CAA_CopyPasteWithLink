@@ -1,0 +1,5 @@
+!<mkRTViewData> v1.0.0
+BTV/000/CUS .\win_b64\code\lib\TRAStCommand.lib|.\TRACommandAddinFW\TRAStCommand.m
+RTV/001/CUS .\win_b64\code\bin\TRAStCommand.dll|.\TRACommandAddinFW\TRAStCommand.m
+INT/000/CUS .\win_b64\code\bin\TRAStCommand.pdb|.\TRACommandAddinFW\TRAStCommand.m
+INT/000/CUS .\win_b64\code\lib\TRAStCommand.exp|.\TRACommandAddinFW\TRAStCommand.m

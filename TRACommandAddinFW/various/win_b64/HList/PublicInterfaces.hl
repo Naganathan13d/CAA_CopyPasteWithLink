@@ -1,0 +1,5 @@
+!<mkhl> v2.0.1
+@TRACommandAddinFW\PublicInterfaces
+TRACommandAddinMod.h
+TRAStCommand.h
+TRAStateCommand.h
