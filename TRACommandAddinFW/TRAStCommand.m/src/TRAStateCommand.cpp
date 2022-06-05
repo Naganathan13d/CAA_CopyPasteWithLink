@@ -88,10 +88,7 @@ void TRAStateCommand::BuildGraph()
 
 	CATListValCATBaseUnknown_var *pRootProducts = piDocRootsOnDoc->GiveDocRoots();
 
-	std::cout << std::endl << " RootProducts List created " << std::endl ;
-
-
-	
+	std::cout << std::endl << " RootProducts List created " << std::endl ;	
 
 	_spRootProduct = (*pRootProducts)[1];
 			delete pRootProducts;
@@ -102,85 +99,77 @@ void TRAStateCommand::BuildGraph()
 
 	std::cout << std::endl << " Got the Root Product " << std::endl ;
 
-	CATDocument *pPartDoc = NULL;
-	CATIProduct *piInstanceProd1 = NULL;
 
-	// load of the CATPart to import
-	rc = CATDocumentServices::OpenDocument("C:\\Users\\Dell\\Documents\\CAAPstImport.CATPart",
-		                           pPartDoc);
-	std::cout << std::endl << " Load OK " << std::endl ;
+	// Get Children
+
+	/* ---------------------------------------*/
+	/* 3. Retrieves children under the root   */
+	/* ---------------------------------------*/
 	
-	// import the CATPart under the root.
-	rc = AddExternalComponent(piProductOnRoot, 
-		                        pPartDoc,
-								&piInstanceProd1);
-
-	CATIProduct_var spAlternateProduct = piProductOnRoot->AddProduct ( "AlternatProd" );
-    piProductOnRoot -> Release();
-    piProductOnRoot = NULL;
-
-	std::cout << std::endl << "add local product OK" << std::endl ;
-
-	CATIProduct *piAlternateProduct = NULL;
-	rc = spAlternateProduct->QueryInterface(IID_CATIProduct, (void**) &piAlternateProduct);
-
-	// imports the same CATPart under the local product.
-	CATIProduct *piInstanceProd2 = NULL;
-	rc = AddExternalComponent(piAlternateProduct,
-                                pPartDoc,
-                                &piInstanceProd2);
-
-	std::cout << std::endl << "add part under local product OK" << std::endl ;
-
-	/*          Positioning CATParts                               */
-
-	CATIProduct_var spReferenceAlternateProduct = piAlternateProduct ->GetReferenceProduct();
-    piAlternateProduct -> Release();
-    piAlternateProduct = NULL;
-
-	std::cout << std::endl << "Reference of the local product instance retrieved OK" << std::endl ;
-
-	 CATIProduct_var spMovableInstanceInContext = piInstanceProd2 ->FindInstance(spReferenceAlternateProduct);
-
-	 std::cout << std::endl << "Instance in the context of the local reference product retrieved OK" << std::endl ;
-
-	// Get CATIMovable handle on the instance of the local product.
-	CATIMovable *piMovableOnAlternate = NULL;
-	rc = spAlternateProduct->QueryInterface(IID_CATIMovable,
-		                                   (void**) &piMovableOnAlternate);
+	int nbOfDirectChidren = piProductOnRoot -> GetChildrenCount() ;
+	cout << " Number of direct children under the root = " << nbOfDirectChidren << endl << flush;
 	
+	// then on a root product, get all the children agregated to it.
+	CATListValCATBaseUnknown_var*   ListChildren =
+		piProductOnRoot->GetAllChildren();
+/** @anchor err_2 piProductOnRoot not set to NULL after release */ 
+	piProductOnRoot -> Release();
+	piProductOnRoot = NULL;
+	if(NULL != ListChildren)
+	{
+		
+		int numberOfChildren = ListChildren->Size();
+		cout << " Number of all children under the root = " << numberOfChildren << endl << flush;
+
+		/* -----------------------------------------------------------*/
+		/*  4. For each child, get its partNumber, and InstanceName   */
+		/* -----------------------------------------------------------*/
+		CATIProduct_var spChild = NULL_var;
+		for (int i=1;i<=numberOfChildren;i++)
+		{
+			spChild = (*ListChildren)[i];
+
+
+
+
+
 	
-	// description of the transformation matrix to the local product.
-	// 1 0 0 12
-	// 0 1 0 12
-	// 0 0 1 12
+    CATIMovable *piMovableOnInstance = NULL;
+    rc = spChild -> QueryInterface (IID_CATIMovable,
+                                            (void**) &piMovableOnInstance);
+    
 
-    double *aPositionAlt = new double [12];
-	for (int l=0; l < 12; l++)
-    	aPositionAlt[l]=0.;
+	CATMathTransformation absolutePosition;
+	piMovableOnInstance -> GetAbsPosition(absolutePosition );
+
+    double *aAbsoluteCoeff = new double [12];
+	absolutePosition.GetCoef(aAbsoluteCoeff);	
 	
-	aPositionAlt[0] = 1.;
-	aPositionAlt[4] = 1.;
-	aPositionAlt[8] = 1.;
-	aPositionAlt[9] = 12.;
-	aPositionAlt[10] = 12.;
-	aPositionAlt[11] = 12.;
-	 
-	std::cout << std::endl << "Applied transformation on the local product: " << std::endl ;
-	for ( int m=0; m<3; m++)
-		std::cout << aPositionAlt[m] << " " << aPositionAlt[m+3]<< " " << aPositionAlt[m+6] << " " << aPositionAlt[m+9]<< std::endl ;
+	for ( int k=0; k<3; k++)
+		std::cout << aAbsoluteCoeff[k] << " " << aAbsoluteCoeff[k+3]<< " " << aAbsoluteCoeff[k+6] << " " << aAbsoluteCoeff[k+9]<< std::endl;
+/** @anchor err_3 aAbsoluteCoeff not set to NULL after delete */ 
+	delete[] aAbsoluteCoeff;
+	aAbsoluteCoeff = NULL;
 
-	// applying the matrix moves the local product.
-	CATMathTransformation newRefPosition(aPositionAlt);
-	piMovableOnAlternate -> SetPosition(newRefPosition,
-		                                NULL_var);
-/** @anchor err_1 aPositionAlt not set to NULL after delete */ 
-    delete [] aPositionAlt;
-	aPositionAlt = NULL;
+	//RefreshVisuAndTree(spUnknown);
 
-	CATBaseUnknown_var spUnknown = _spRootProduct ;
+	// relative position in the context of the local product.
+	// no specification for the context, means default movable will be used.
+	CATIMovable_var spContext = NULL_var;
+	CATMathTransformation relativePositon = 
+		piMovableOnInstance -> GetPosition(spContext);
+    double *aRelativeCoeff = new double [12];
+	relativePositon.GetCoef(aRelativeCoeff);	
+	std::cout << " Relative position of the instance in the context of the local product: " << std::endl;
+	for ( k=0; k<3; k++)
+		std::cout << aRelativeCoeff[k] << " " << aRelativeCoeff[k+3]<< " " << aRelativeCoeff[k+6] << " " << aRelativeCoeff[k+9]<< std::endl;
+/** @anchor err_4 aRelativeCoeff not set to NULL after delete */ 
+	delete[] aRelativeCoeff;
+	aRelativeCoeff = NULL;
 
-	RefreshVisuAndTree(spUnknown);
+		}
+
+	}
 
 	}
  
