@@ -27,6 +27,18 @@
 #include "CATModify.h"
 #include "CATIRedrawEvent.h"
 #include "CATBaseUnknown.h"
+#include "CATILinkableObject.h"
+#include "CATMmrInterPartCopy.h"
+#include "CATIContainerOfDocument.h"
+#include "CATIPrtContainer.h"
+#include "CATIPartRequest.h"
+#include "CATIDescendants.h"
+
+
+
+
+
+
 
 
 
@@ -100,147 +112,258 @@ void TRAStateCommand::BuildGraph()
 	std::cout << std::endl << " Got the Root Product " << std::endl ;
 
 
-	// Get Children
+	 //
+  // 3-2 The components of the root product
+  // 
+  CATListValCATBaseUnknown_var * pListDirectChildren = piProductOnRoot->GetChildren(); 
+  
 
-	/* ---------------------------------------*/
-	/* 3. Retrieves children under the root   */
-	/* ---------------------------------------*/
-	
-	int nbOfDirectChidren = piProductOnRoot -> GetChildrenCount() ;
-	cout << " Number of direct children under the root = " << nbOfDirectChidren << endl << flush;
-	
-	// then on a root product, get all the children agregated to it.
-	CATListValCATBaseUnknown_var*   ListChildren =
-		piProductOnRoot->GetAllChildren();
-/** @anchor err_2 piProductOnRoot not set to NULL after release */ 
-	piProductOnRoot -> Release();
-	piProductOnRoot = NULL;
-	if(NULL != ListChildren)
-	{
-		
-		int numberOfChildren = ListChildren->Size();
-		cout << " Number of all children under the root = " << numberOfChildren << endl << flush;
+  piProductOnRoot->Release();
+  piProductOnRoot = NULL ;
 
-		/* -----------------------------------------------------------*/
-		/*  4. For each child, get its partNumber, and InstanceName   */
-		/* -----------------------------------------------------------*/
-		CATIProduct_var spChild = NULL_var;
-		for (int i=1;i<=numberOfChildren;i++)
-		{
-			spChild = (*ListChildren)[i];
+  // Comp1 and Comp2
+  CATIProduct_var spComp1 = (*pListDirectChildren)[1] ;
+  CATIProduct_var spComp2 = (*pListDirectChildren)[2] ;
 
 
+   // The component of Comp2
+  pListDirectChildren = spComp2->GetChildren(); 
+  
+
+  // Comp3
+  CATIProduct_var spComp3 = (*pListDirectChildren)[1] ;
+
+ 
+
+  delete pListDirectChildren ;
+  pListDirectChildren = NULL ;
+
+  // The Part feature
+  CATISpecObject_var spSpecObjectOnMechPartOfComp3  ;
+  rc = CAAMmrGetPartFromProduct(spComp3, spSpecObjectOnMechPartOfComp3);
+
+   // The PartBody feature
+  CATBaseUnknown * pBody = NULL ;
+  rc = CAAMmrGetGeometry(spSpecObjectOnMechPartOfComp3,"PartBody",&pBody);
+
+  CATBaseUnknown_var spOnBodyOfComp3 = pBody ;
+  pBody->Release();
+  pBody = NULL ;
+
+   // The Part feature
+  CATISpecObject_var spSpecObjectOnMechPartOfComp1  ;
+  rc = CAAMmrGetPartFromProduct(spComp1,spSpecObjectOnMechPartOfComp1);
+
+   // The PartBody feature
+  pBody = NULL ;
+  rc = CAAMmrGetGeometry(spSpecObjectOnMechPartOfComp1,"PartBody",&pBody);
+  
+
+  CATBaseUnknown_var spOnBodyOfComp1 = pBody ;
+  pBody->Release();
+  pBody = NULL ;
+
+   CATMmrInterPartCopy * ptCATMmrInterPartCopy = NULL ;
+
+  CATISpecObject_var SourceToCopy = spOnBodyOfComp3 ;
+  CATISpecObject_var Target       = spSpecObjectOnMechPartOfComp1 ;
+
+  ptCATMmrInterPartCopy =  new CATMmrInterPartCopy (SourceToCopy,Target) ;
+                                                    
+                                                    
+ 
+     ptCATMmrInterPartCopy ->SetSourceInstance(spComp3);
+     ptCATMmrInterPartCopy ->SetTargetInstance(spComp1);
+
+	 CATBoolean CopyWithLink = TRUE ;
+ 
+
+  // Sets the option of copy 
+  ptCATMmrInterPartCopy ->SetLinkMode(CopyWithLink) ; 
+  
+  // Executes the copy
+  CATUnicodeString ErrorMsg ;
+  rc = ptCATMmrInterPartCopy ->Run(&ErrorMsg);
+ 
+ 
+
+  // Retrieves the result
+  CATISpecObject_var Result ;
+  rc = ptCATMmrInterPartCopy ->GetResult(Result);
+  if ( SUCCEEDED(rc) && (NULL_var != Result) )
+  {
+      CATIAlias_var alias = Result  ;
+     
+  }
+
+
+  delete ptCATMmrInterPartCopy ;
+  ptCATMmrInterPartCopy = NULL ;
+
+  }
+
+  }
+
+
+  HRESULT TRAStateCommand::CAAMmrGetPartFromProduct(CATIProduct_var       ispProduct,                                
+	  CATISpecObject_var  & ospPartFromProduct)
+  {
+
+	  HRESULT rc = E_FAIL ;
 
 
 
-	
-    CATIMovable *piMovableOnInstance = NULL;
-    rc = spChild -> QueryInterface (IID_CATIMovable,
-                                            (void**) &piMovableOnInstance);
-    
+	  CATIProduct_var spRef = ispProduct->GetReferenceProduct();
 
-	CATMathTransformation absolutePosition;
-	piMovableOnInstance -> GetAbsPosition(absolutePosition );
+	  if ( NULL_var != spRef )
+	  {
+		  CATILinkableObject * piLinkableObject = NULL;
+		  rc = spRef->QueryInterface( IID_CATILinkableObject, (void**)& piLinkableObject );                            
 
-    double *aAbsoluteCoeff = new double [12];
-	absolutePosition.GetCoef(aAbsoluteCoeff);	
-	
-	for ( int k=0; k<3; k++)
-		std::cout << aAbsoluteCoeff[k] << " " << aAbsoluteCoeff[k+3]<< " " << aAbsoluteCoeff[k+6] << " " << aAbsoluteCoeff[k+9]<< std::endl;
-/** @anchor err_3 aAbsoluteCoeff not set to NULL after delete */ 
-	delete[] aAbsoluteCoeff;
-	aAbsoluteCoeff = NULL;
+		  if ( SUCCEEDED(rc) )
+		  {
+			  // Do not release this pointer
+			  CATDocument * pDocument = NULL ;
+			  pDocument = piLinkableObject->GetDocument();
 
-	//RefreshVisuAndTree(spUnknown);
+			  if ( NULL != pDocument )
+			  {
+				  CATIContainerOfDocument * pIContainerOfDocument = NULL ;
+				  rc = pDocument->QueryInterface(IID_CATIContainerOfDocument, 
+					  (void**)& pIContainerOfDocument );
+				  if ( SUCCEEDED(rc) )
+				  {
+					  CATIContainer * pIContainerOnSpecContainer = NULL ;
+					  rc = pIContainerOfDocument->GetSpecContainer(pIContainerOnSpecContainer);
+					  if ( SUCCEEDED(rc) && (NULL!=pIContainerOnSpecContainer) )
+					  {
+						  CATIPrtContainer * piPrtCont = NULL ;
+						  rc = pIContainerOnSpecContainer->QueryInterface( IID_CATIPrtContainer , 
+							  (void**) &piPrtCont );
 
-	// relative position in the context of the local product.
-	// no specification for the context, means default movable will be used.
-	CATIMovable_var spContext = NULL_var;
-	CATMathTransformation relativePositon = 
-		piMovableOnInstance -> GetPosition(spContext);
-    double *aRelativeCoeff = new double [12];
-	relativePositon.GetCoef(aRelativeCoeff);	
-	std::cout << " Relative position of the instance in the context of the local product: " << std::endl;
-	for ( k=0; k<3; k++)
-		std::cout << aRelativeCoeff[k] << " " << aRelativeCoeff[k+3]<< " " << aRelativeCoeff[k+6] << " " << aRelativeCoeff[k+9]<< std::endl;
-/** @anchor err_4 aRelativeCoeff not set to NULL after delete */ 
-	delete[] aRelativeCoeff;
-	aRelativeCoeff = NULL;
+						  if ( SUCCEEDED(rc) )
+						  {
+							  ospPartFromProduct = piPrtCont->GetPart();
 
-		}
+							  piPrtCont->Release();
+							  piPrtCont =  NULL ;
+						  }
+						  pIContainerOnSpecContainer->Release();
+						  pIContainerOnSpecContainer = NULL ;
+					  }
+					  pIContainerOfDocument->Release();
+					  pIContainerOfDocument = NULL ;
+				  }
+			  } else rc = E_FAIL ;
 
-	}
+			  piLinkableObject->Release();
+			  piLinkableObject = NULL ;
+		  }
+	  }
 
-	}
+	  return rc ;
+
+  }
+
+  
+
+
+
+
+  HRESULT TRAStateCommand::CAAMmrGetGeometry(CATISpecObject_var ispModelPart, const CATUnicodeString iInputName,
+	  CATBaseUnknown ** oInput)
+  {
+
+	  HRESULT rc = E_FAIL ;
+	  CATBoolean found = FALSE ;	
+
+	  if ( (NULL != oInput) && ( NULL_var != ispModelPart) )
+	  {   
+		  *oInput = NULL ;
+
+		  CATIPartRequest * pPartAsRequest = NULL ;
+		  rc = ispModelPart->QueryInterface(IID_CATIPartRequest,(void**)&pPartAsRequest);
+		  if ( SUCCEEDED(rc) )
+		  {
+			  // Retrieves all bodies
+			  CATListValCATBaseUnknown_var pListBodies  ;
+			  rc = pPartAsRequest->GetAllBodies("",pListBodies);
+			  if ( SUCCEEDED(rc) )
+			  {
+				  int iBodies =1 ;	  
+				  int nbbodies = pListBodies.Size();
+
+				  while ( (FALSE == found) && (iBodies <= nbbodies) )
+				  {
+					  CATIAlias_var spAliasBody = pListBodies[iBodies] ;
+					  if ( NULL_var != spAliasBody )
+					  {
+						  CATUnicodeString currentbodyname = spAliasBody->GetAlias();
+
+						  if ( iInputName == currentbodyname )
+						  {
+							  // We have found a body
+							  found = TRUE ;
+							  rc = spAliasBody->QueryInterface(IID_CATBaseUnknown,(void**)&(*oInput));
+						  }
+						  else
+						  {
+
+							  // Research in the body
+							  CATIDescendants * pIDescendants = NULL ;
+							  rc =  spAliasBody->QueryInterface(IID_CATIDescendants,(void**)&pIDescendants);
+							  if ( SUCCEEDED(rc) )
+							  {
+								  // finds a specific element in the body
+								  int iChild=1 ;	  
+								  int nbchild = pIDescendants->GetNumberOfChildren() ;
+
+								  while (  (FALSE == found) && (iChild <= nbchild) )
+								  {
+									  CATIAlias_var spChild = pIDescendants->GetChildAtPosition(iChild) ;
+									  if ( NULL_var != spChild )
+									  {
+										  CATUnicodeString currentchildname = spChild->GetAlias();
+
+										  if ( iInputName == currentchildname )
+										  {
+											  // we have found a child of a body
+											  found = TRUE ;
+											  rc = spChild->QueryInterface(IID_CATBaseUnknown,(void**)&(*oInput));
+										  }
+									  }
+									  iChild++ ;
+								  }
+
+								  pIDescendants->Release();
+								  pIDescendants = NULL ;
+							  }
+						  }
+					  }
+					  iBodies ++ ;               
+				  }
+			  }
+		  }
+
+
+		  
+	  }
+
+	  return rc ;
+
+  }
+
+
+
  
 
 
 
-	
-
-
-}
 
 
 
 
-HRESULT TRAStateCommand::AddExternalComponent(CATIProduct *iThisProd, CATDocument *iDocument, CATIProduct **oNewProduct)
-{
-	
 
-	HRESULT rc = E_FAIL;
-	
-	if ( NULL != iDocument)
-	{
-		// Get RootProduct of the document to import.
-		CATIDocRoots *piDocRootsOnDoc = NULL;
-		rc = iDocument->QueryInterface(IID_CATIDocRoots,
-			                           (void**) &piDocRootsOnDoc);
-		if ( FAILED(rc) )
-		{
-			std::cout << "** QI on CATIDocRoots failed " << std::endl ;
-			
-		}
-		
-		CATListValCATBaseUnknown_var *pRootProducts = 
-			piDocRootsOnDoc->GiveDocRoots();
-		CATIProduct_var spRootProduct = NULL_var;
-		if ( NULL != pRootProducts)
-			if (pRootProducts->Size())
-			{  
-				// the root product is first element of
-				// the list of root elements.
-				spRootProduct = (*pRootProducts)[1];
-				delete pRootProducts;
-				pRootProducts = NULL;
-			}
-			
-		piDocRootsOnDoc->Release();
-		piDocRootsOnDoc=NULL;
-		
-		CATIProduct_var spProduct = NULL_var;
-		if (NULL_var != spRootProduct)
-		{
-		// We have the root product from which one
-			// will be agregated in "this"
-/** @anchor err_1 iThisProduct not tested before use */ 
-		spProduct = iThisProd->AddProduct   (spRootProduct);
-		}
-		else
-		{
-			CATUnicodeString docName = iDocument-> StorageName();
-/** @anchor err_2 iThisProduct not tested before use */ 
-			iThisProd->AddShapeRepresentation(CATUnicodeString("model"),
-				                              docName);
-			
-		}
-
-		rc = spProduct->QueryInterface(IID_CATIProduct, 
-			                           (void**) &*oNewProduct);
-		
-	}
-	return rc; 
-} 
 
 void TRAStateCommand::RefreshVisuAndTree(CATBaseUnknown_var spUnknown)
 {

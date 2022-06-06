@@ -32,6 +32,18 @@ AddPrereqComponent("KnowledgeInterfaces  ",Protected);
 AddPrereqComponent("Visualization  ",Protected);
 AddPrereqComponent("ProductStructure  ",Protected);
 AddPrereqComponent("ObjectModelerNavigator  ",Protected);
+AddPrereqComponent("MechanicalModeler  ",Protected);
+AddPrereqComponent("MecModInterfaces  ",Protected);
+AddPrereqComponent("ObjectSpecsModeler  ",Protected);
+
+
+ 
+
+
+ 
+
+
+ 
 
 
  

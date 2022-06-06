@@ -52,6 +52,12 @@ class ExportedByTRAStCommand TRAStateCommand: public CATStateCommand
 
 	  void RefreshVisuAndTree(CATBaseUnknown_var spUnknwon);
 
+	  HRESULT CAAMmrGetPartFromProduct(CATIProduct_var       ispProduct,                                
+				                 CATISpecObject_var  & ospPartFromProduct);
+
+	   HRESULT CAAMmrGetGeometry(CATISpecObject_var ispModelPart, const CATUnicodeString iInputName,
+				 CATBaseUnknown ** oInput);
+
   TRAStateCommand();
   virtual ~TRAStateCommand();
 
